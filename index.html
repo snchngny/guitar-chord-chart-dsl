@@ -1,0 +1,1291 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chord Chart DSL</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f3ef;
+    --panel: #ffffff;
+    --ink: #171717;
+    --muted: #66645f;
+    --line: #c9c7be;
+    --strong-line: #262626;
+    --accent: #1f6f68;
+    --accent-soft: #dcefeb;
+    --bad: #a83232;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  .app {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: minmax(320px, 410px) max-content;
+    width: max-content;
+  }
+
+  .editor {
+    border-right: 1px solid var(--line);
+    background: #fbfaf7;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 100vh;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .toolbar h1 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  button {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    min-width: 36px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #f0eee8;
+  }
+
+  button.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: white;
+  }
+
+  textarea {
+    width: 100%;
+    height: 100%;
+    resize: none;
+    border: 0;
+    outline: 0;
+    padding: 14px;
+    background: #fffefb;
+    color: var(--ink);
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    tab-size: 2;
+  }
+
+  .status {
+    min-height: 40px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .status.error {
+    color: var(--bad);
+    background: #fff7f7;
+  }
+
+  .preview {
+    min-width: 0;
+    padding: 18px;
+    overflow: auto;
+  }
+
+  .sheet {
+    width: fit-content;
+    margin: 0 auto;
+    background: white;
+    border: 1px solid var(--line);
+    box-shadow: 0 16px 36px rgba(28, 25, 18, .10);
+  }
+
+  .chart-title {
+    padding: 12px 14px 4px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .section-title {
+    padding: 14px 14px 6px;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .chart-title + .section-title {
+    border-top: 0;
+  }
+
+  .chart {
+    display: grid;
+    border-top: 1px solid var(--strong-line);
+    border-left: 1px solid var(--strong-line);
+  }
+
+  .cell,
+  .head,
+  .row-head {
+    border-right: 1px solid var(--strong-line);
+    border-bottom: 1px solid var(--strong-line);
+    background: white;
+  }
+
+  .head {
+    height: 30px;
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    font-weight: 500;
+    font-family: Georgia, "Times New Roman", serif;
+  }
+
+  .row-head {
+    display: grid;
+    place-items: center;
+    min-height: 104px;
+    padding: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #2b2b2b;
+  }
+
+  .section-row {
+    grid-column: 1 / -1;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    padding: 7px 12px;
+    border-right: 1px solid var(--strong-line);
+    border-bottom: 1px solid var(--strong-line);
+    background: #f2f2ec;
+    color: #222;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .col-section-head {
+    width: 28px;
+    min-height: 30px;
+    display: grid;
+    place-items: center;
+    padding: 8px 3px;
+    border-right: 1px solid var(--strong-line);
+    border-bottom: 1px solid var(--strong-line);
+    background: #f2f2ec;
+    color: #222;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+  }
+
+  .cell {
+    position: relative;
+    min-height: 104px;
+    width: 126px;
+    display: grid;
+    place-items: center;
+    padding: 8px;
+  }
+
+  .cell.bucket {
+    width: 360px;
+    min-height: 124px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .cell.multi {
+    align-content: center;
+    gap: 2px;
+  }
+
+  .diagram-card {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    width: 98px;
+  }
+
+  .diagram-label {
+    font-size: 13px;
+    line-height: 1;
+    font-weight: 700;
+    color: #111;
+  }
+
+  .cell.empty {
+    background: #fcfcfb;
+  }
+
+  .cell-note {
+    position: absolute;
+    left: 7px;
+    right: 7px;
+    bottom: 3px;
+    color: var(--muted);
+    font-size: 10px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  svg.chord {
+    width: 92px;
+    height: 72px;
+    display: block;
+    overflow: visible;
+  }
+
+  .string-line,
+  .fret-line {
+    stroke: #111;
+    stroke-width: 1.15;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .nut-line {
+    stroke: #111;
+    stroke-width: 4.5;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .barre {
+    fill: #111;
+  }
+
+  .dot {
+    fill: #111;
+  }
+
+  .open-mark,
+  .muted-mark {
+    fill: none;
+    stroke: #111;
+    stroke-width: 1.2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .fret-label,
+  .tiny-label {
+    fill: #111;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+  }
+
+  .tiny-label {
+    font-size: 9px;
+    font-weight: 600;
+  }
+
+  @media (max-width: 900px) {
+    .app {
+      grid-template-columns: 1fr;
+      width: auto;
+    }
+
+    .editor {
+      min-height: 45vh;
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .preview {
+      padding: 12px;
+    }
+  }
+
+  @media print {
+    body {
+      background: white;
+    }
+
+    .editor {
+      display: none;
+    }
+
+    .app {
+      display: block;
+      min-height: 0;
+    }
+
+    .preview {
+      padding: 0;
+      overflow: visible;
+    }
+
+    .sheet {
+      min-width: 0;
+      width: 100%;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .cell {
+      width: auto;
+      min-height: 78px;
+      padding: 4px;
+    }
+
+    .row-head {
+      min-height: 78px;
+    }
+
+    svg.chord {
+      width: 74px;
+      height: 58px;
+    }
+
+    @page {
+      size: A4 portrait;
+      margin: 7mm;
+    }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+  <section class="editor" aria-label="Chord chart source">
+    <div class="toolbar">
+      <h1>Chord Chart DSL</h1>
+      <div class="actions">
+        <button type="button" id="sampleButton" title="sample">Sample</button>
+        <button type="button" id="flipButton" title="flip rows and columns">Flip</button>
+        <button type="button" id="saveButton" title="save dsl">Save</button>
+        <button type="button" id="svgButton" title="svg">SVG</button>
+        <button type="button" id="printButton" class="primary" title="print to pdf">PDF</button>
+      </div>
+    </div>
+    <textarea id="source" spellcheck="false"></textarea>
+    <div id="status" class="status">Ready</div>
+  </section>
+  <section class="preview" aria-label="Chord chart preview">
+    <div id="sheet" class="sheet"></div>
+  </section>
+</main>
+
+<script>
+const sampleSource = `title: Root Form Guitar Chord Chart
+columns: 5throot 6throot
+
+row: M
+5throot: frets=. 5 5 5 3 . barre=3:1-5
+6throot: frets=3 3 4 5 5 3 barre=3:1-6
+
+row: m
+5throot: frets=. 4 5 5 . . barre=3:1-5
+6throot: frets=. . . 5 5 3 barre=3:1-6
+
+row: M7(9)
+5throot: frets=. 3 4 2 3 .
+6throot: frets=. . 2 4 2 3
+
+row: m7(9)
+5throot: frets=. 3 3 1 3 .
+6throot: frets=. 3 2 3 . 3 note=フォーム変わる
+
+row: 7(9)
+5throot: frets=. 3 3 2 3 .
+6throot: frets=. . 2 3 2 3
+
+row: 7+9
+5throot: frets=. 4 3 2 3 .
+6throot: frets=. . 3 3 2 3
+
+
+row: m6
+5throot: frets=3 4 2 . 3 .
+6throot: frets=. 3 3 2 . 3
+
+row: m7-5
+5throot: frets=. 4 3 4 3 .
+6throot: frets=. 3 3 3 . 3
+
+row: dim
+5throot: frets=. 4 2 4 3 .
+6throot: frets=. 3 3 2 . 3
+
+section: 以下、使用頻度低め
+row: M7
+5throot: frets=. 5 4 5 3 . barre=3:1-5
+6throot: frets=3 3 4 4 . 3
+
+row: m7
+5throot: frets=. 4 . 5 . . barre=3:1-5
+6throot: frets=. . . . 5 3 barre=3:1-6
+
+row: 7
+5throot: frets=. 5 . 5 . . barre=3:1-5
+6throot: frets=3 3 4 3 5 3 barre=3:1-6
+
+row: 6(9)
+5throot: frets=. 3 2 2 3 .
+6throot: frets=. 3 2 2 2 3
+
+section: 以下、使用頻度低め 超
+row: 7-9
+5throot: frets=. 2 3 2 3 .
+6throot: frets=. . 1 3 2 3
+
+row: 7(13)
+5throot: frets=5 5 . . . . barre=3:1-5
+6throot: frets=3 5 4 3 . 3 barre=3:1-4
+`;
+
+const sourceEl = document.getElementById("source");
+const sheetEl = document.getElementById("sheet");
+const statusEl = document.getElementById("status");
+const sampleButton = document.getElementById("sampleButton");
+const flipButton = document.getElementById("flipButton");
+const saveButton = document.getElementById("saveButton");
+const svgButton = document.getElementById("svgButton");
+const printButton = document.getElementById("printButton");
+const storageKey = `chordChartDslSource:${location.pathname}`;
+let renderMode = "note";
+
+sourceEl.value = localStorage.getItem(storageKey) || sampleSource;
+
+function parseChart(text) {
+  const lines = text.split(/\r?\n/);
+  const chart = { title: "", columns: [], rows: [], colSections: [] };
+  let currentRow = null;
+  let lastCellKey = null;
+
+  lines.forEach((raw, index) => {
+    const lineNumber = index + 1;
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("//") || trimmed.startsWith("%%")) return;
+
+    const header = trimmed.match(/^([^:\s][^:]*)\s*:\s*(.*)$/);
+    if (!header) {
+      if (currentRow && lastCellKey) {
+        const previousCell = currentRow.cells.get(lastCellKey);
+        if (previousCell) {
+          previousCell.note = [previousCell.note, trimmed].filter(Boolean).join(" ");
+        }
+        return;
+      }
+      throw new Error(`Line ${lineNumber}: expected key: value`);
+    }
+
+    const key = header[1].toLowerCase();
+    const value = header[2].trim();
+
+    if (key === "title") {
+      chart.title = value;
+      lastCellKey = null;
+      return;
+    }
+
+    if (key === "columns") {
+      chart.columns = value.split(/\s+/).filter(Boolean);
+      lastCellKey = null;
+      return;
+    }
+
+    if (key === "row") {
+      currentRow = { label: value, cells: new Map() };
+      chart.rows.push(currentRow);
+      lastCellKey = null;
+      return;
+    }
+
+    if (key === "section") {
+      currentRow = null;
+      chart.rows.push({ label: value, type: "section" });
+      lastCellKey = null;
+      return;
+    }
+
+    if (key === "colsection") {
+      chart.colSections.push(parseColumnSection(value));
+      currentRow = null;
+      lastCellKey = null;
+      return;
+    }
+
+    if (!currentRow) {
+      throw new Error(`Line ${lineNumber}: cell must appear after row:`);
+    }
+
+    currentRow.cells.set(header[1], parseCell(value, lineNumber, `${currentRow.label} ${header[1]}`));
+    lastCellKey = header[1];
+  });
+
+  if (!chart.columns.length) throw new Error("columns: is required");
+  if (!chart.rows.length) throw new Error("row: is required");
+  return chart;
+}
+
+function parseColumnSection(value) {
+  const match = value.match(/^(.*?)\s+\|\s+before=(.+)$/);
+  if (!match) {
+    return { label: value, before: null };
+  }
+  return { label: match[1].trim(), before: match[2].trim() };
+}
+
+function parseCell(value, lineNumber, rootHint = "") {
+  if (!value || value === "-" || value.toLowerCase() === "empty") return null;
+
+  const parts = value.split(/\s+\|\s+/).map((part) => part.trim()).filter(Boolean);
+  const diagrams = parts.map((part) => parseCellDiagram(part, lineNumber, rootHint));
+  const note = diagrams.find((diagram) => diagram.note)?.note || "";
+  diagrams.forEach((diagram) => {
+    diagram.note = "";
+  });
+  return { diagrams, note };
+}
+
+function parseCellDiagram(value, lineNumber, rootHint = "") {
+  const cell = { base: null, positionBase: null, rootLabel: null, frets: null, barres: [], note: "" };
+  const segments = value.split(/\s+(?=[a-zA-Z0-9][\w-]*=)/);
+  const loose = [];
+
+  segments.forEach((segment) => {
+    const m = segment.match(/^([a-zA-Z0-9][\w-]*)=(.*)$/);
+    if (!m) {
+      loose.push(...segment.split(/\s+/).filter(Boolean));
+      return;
+    }
+
+    const key = m[1].toLowerCase();
+    const rawValue = m[2].trim();
+    if (key === "base") cell.base = parsePositiveInt(rawValue, lineNumber, "base");
+    else if (key === "frets") cell.frets = rawValue.split(/[\s,]+/).filter(Boolean).map((token) => parseFret(token, lineNumber));
+    else if (key === "barre") cell.barres.push(parseBarre(rawValue, lineNumber));
+    else if (key === "note") cell.note = rawValue;
+  });
+
+  if (!cell.frets && loose.length) {
+    if (/^\d+$/.test(loose[0])) {
+      cell.base = Number(loose.shift());
+    }
+    cell.frets = loose.map((token) => parseFret(token, lineNumber));
+  }
+
+  if (!cell.frets || cell.frets.length !== 6) {
+    throw new Error(`Line ${lineNumber}: frets must contain 6 values`);
+  }
+
+  if (cell.base) {
+    cell.positionBase = cell.base;
+    cell.rootLabel = cell.base;
+  } else {
+    cell.positionBase = derivePositionBase(cell);
+    cell.rootLabel = deriveRootBase(cell, rootHint);
+    cell.base = cell.rootLabel;
+  }
+
+  return cell;
+}
+
+function derivePositionBase(cell) {
+  if (cell.barres.length) {
+    return cell.barres[0].fret;
+  }
+  const positive = cell.frets.filter((fret) => typeof fret === "number" && fret > 0);
+  return positive.length ? Math.min(...positive) : 1;
+}
+
+function deriveRootBase(cell, rootHint = "") {
+  if (rootStringFromColumn(rootHint) && cell.barres.length) {
+    return cell.barres[0].fret;
+  }
+
+  for (let index = cell.frets.length - 1; index >= 0; index -= 1) {
+    const fret = cell.frets[index];
+    if (typeof fret === "number" && fret > 0) {
+      return fret;
+    }
+  }
+  if (cell.barres.length) {
+    return cell.barres[0].fret;
+  }
+  return 1;
+}
+
+function rootStringFromColumn(rootHint) {
+  const normalized = String(rootHint).toLowerCase();
+  if (normalized.includes("5throot") || normalized.includes("5root") || normalized.includes("5弦")) return 5;
+  if (normalized.includes("6throot") || normalized.includes("6root") || normalized.includes("6弦")) return 6;
+  return null;
+}
+
+function parsePositiveInt(value, lineNumber, label) {
+  if (!/^\d+$/.test(value) || Number(value) < 1) {
+    throw new Error(`Line ${lineNumber}: ${label} must be a positive number`);
+  }
+  return Number(value);
+}
+
+function parseFret(token, lineNumber) {
+  const normalized = token.toLowerCase();
+  if ([".", "-", "blank", "none"].includes(normalized)) return null;
+  if (["x", "mute", "muted"].includes(normalized)) return "x";
+  if (["o", "open"].includes(normalized)) return 0;
+  if (/^\d+$/.test(normalized)) return Number(normalized);
+  throw new Error(`Line ${lineNumber}: unknown fret value "${token}"`);
+}
+
+function parseBarre(value, lineNumber) {
+  const match = value.match(/^(\d+):(\d)-(\d)$/);
+  if (!match) {
+    throw new Error(`Line ${lineNumber}: barre must look like 3:1-6`);
+  }
+  const fret = Number(match[1]);
+  const from = Number(match[2]);
+  const to = Number(match[3]);
+  if (from < 1 || from > 6 || to < 1 || to > 6 || from > to) {
+    throw new Error(`Line ${lineNumber}: barre string range must be 1-6`);
+  }
+  return { fret, from, to };
+}
+
+function renderChartByNotes(chart) {
+  const columnEntries = buildColumnEntries(chart);
+  const columnCount = columnEntries.length;
+  const dataRows = chart.rows.filter((row) => row.type !== "section");
+  sheetEl.innerHTML = "";
+  if (chart.title) {
+    const title = document.createElement("div");
+    title.className = "chart-title";
+    title.textContent = chart.title;
+    sheetEl.append(title);
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "chart";
+  grid.style.gridTemplateColumns = columnEntries.map((entry) => entry.width).join(" ");
+  sheetEl.append(grid);
+
+  appendColumnHeaders(grid, columnEntries, dataRows.length + 1);
+
+  chart.rows.forEach((row) => {
+    if (row.type === "section") {
+      grid.append(makeSectionRow(row.label));
+      return;
+    }
+    appendDataRow(grid, columnEntries, row);
+  });
+
+  return columnCount;
+}
+
+function renderChartByRootStrings(chart) {
+  sheetEl.innerHTML = "";
+  if (chart.title) {
+    const title = document.createElement("div");
+    title.className = "chart-title";
+    title.textContent = `${chart.title} / root string groups`;
+    sheetEl.append(title);
+  }
+
+  const groups = [
+    { label: "5th root", stringNumber: 5 },
+    { label: "6th root", stringNumber: 6 },
+  ];
+  const unknown = collectUnknownRootCells(chart);
+  const grid = document.createElement("div");
+  grid.className = "chart";
+  grid.style.gridTemplateColumns = `82px repeat(${groups.length}, 360px)`;
+  sheetEl.append(grid);
+
+  grid.append(makeHeader(""));
+  groups.forEach((group) => grid.append(makeHeader(group.label)));
+
+  chart.rows.forEach((row) => {
+    if (row.type === "section") {
+      grid.append(makeSectionRow(row.label));
+      return;
+    }
+    grid.append(makeRowHeader(row.label));
+    groups.forEach((group) => {
+      grid.append(makeBucketCell(chart, row, group.stringNumber));
+    });
+  });
+
+  if (unknown > 0) {
+    const note = document.createElement("div");
+    note.className = "status";
+    note.textContent = `未判定 / 要確認: ${unknown} diagrams`;
+    sheetEl.append(note);
+  }
+}
+
+function appendSectionTitle(text) {
+  const title = document.createElement("div");
+  title.className = "section-title";
+  title.textContent = text;
+  sheetEl.append(title);
+}
+
+function appendRootGrid(chart, targetStringNumber) {
+  const columnEntries = buildColumnEntries(chart);
+  const dataRows = chart.rows.filter((row) => row.type !== "section");
+  const grid = document.createElement("div");
+  grid.className = "chart";
+  grid.style.gridTemplateColumns = columnEntries.map((entry) => entry.width).join(" ");
+  sheetEl.append(grid);
+
+  appendColumnHeaders(grid, columnEntries, dataRows.length + 1);
+
+  chart.rows.forEach((row) => {
+    if (row.type === "section") {
+      grid.append(makeSectionRow(row.label));
+      return;
+    }
+    grid.append(makeRowHeader(row.label));
+    columnEntries.filter((entry) => entry.type === "column").forEach((entry) => {
+      const column = entry.column;
+      const cell = row.cells.get(column) || null;
+      grid.append(makeCell(filterCellByRootString(cell, column, targetStringNumber)));
+    });
+  });
+}
+
+function makeBucketCell(chart, row, targetStringNumber) {
+  const el = document.createElement("div");
+  el.className = "cell bucket";
+
+  chart.columns.forEach((column) => {
+    const cell = row.cells.get(column);
+    if (!cell) return;
+    cell.diagrams.forEach((diagram, index) => {
+      if (classifyRootString(diagram, column) !== targetStringNumber) return;
+      const card = document.createElement("div");
+      card.className = "diagram-card";
+      const label = document.createElement("div");
+      label.className = "diagram-label";
+      label.textContent = `${column}${index > 0 ? " alt" : ""}`;
+      card.append(label, makeChordSvg(diagram));
+      el.append(card);
+    });
+  });
+
+  if (!el.children.length) {
+    el.classList.add("empty");
+  }
+  return el;
+}
+
+function filterCellByRootString(cell, rootName, targetStringNumber) {
+  if (!cell) return null;
+  const diagrams = cell.diagrams.filter((diagram) => classifyRootString(diagram, rootName) === targetStringNumber);
+  if (!diagrams.length) return null;
+  return { diagrams, note: cell.note };
+}
+
+function collectUnknownRootCells(chart) {
+  let count = 0;
+  chart.rows.forEach((row) => {
+    chart.columns.forEach((column) => {
+      const cell = row.cells.get(column);
+      if (!cell) return;
+      count += cell.diagrams.filter((diagram) => classifyRootString(diagram, column) === null).length;
+    });
+  });
+  return count;
+}
+
+function classifyRootString(diagram, rootName) {
+  const root = normalizeNote(rootName);
+  if (!root) return null;
+  const baseMatches = [];
+  for (let stringNumber = 5; stringNumber <= 6; stringNumber += 1) {
+    if (rootFretsOnString(root, stringNumber).includes(diagram.base)) {
+      baseMatches.push(stringNumber);
+    }
+  }
+  if (baseMatches.length) {
+    return Math.max(...baseMatches);
+  }
+
+  const candidates = [];
+  for (let stringNumber = 5; stringNumber <= 6; stringNumber += 1) {
+    const fret = effectiveFretOnString(diagram, stringNumber);
+    if (fret === null || fret === "x") continue;
+    if (noteAt(stringNumber, fret) === root) {
+      candidates.push(stringNumber);
+    }
+  }
+  if (!candidates.length) return null;
+  return Math.max(...candidates);
+}
+
+function rootFretsOnString(root, stringNumber) {
+  const matches = [];
+  for (let fret = 0; fret <= 24; fret += 1) {
+    if (noteAt(stringNumber, fret) === root) {
+      matches.push(fret);
+    }
+  }
+  return matches;
+}
+
+function effectiveFretOnString(diagram, stringNumber) {
+  const value = diagram.frets[stringNumber - 1];
+  if (typeof value === "number") return value;
+  if (value === "x") return "x";
+  const barre = diagram.barres.find((item) => item.from <= stringNumber && stringNumber <= item.to);
+  return barre ? barre.fret : null;
+}
+
+function normalizeNote(name) {
+  const value = String(name).trim().replace(/[^A-G#b]/g, "");
+  const aliases = {
+    "C": "C",
+    "B#": "C",
+    "C#": "C#",
+    "Db": "C#",
+    "D": "D",
+    "D#": "D#",
+    "Eb": "D#",
+    "E": "E",
+    "Fb": "E",
+    "E#": "F",
+    "F": "F",
+    "F#": "F#",
+    "Gb": "F#",
+    "G": "G",
+    "G#": "G#",
+    "Ab": "G#",
+    "A": "A",
+    "A#": "A#",
+    "Bb": "A#",
+    "B": "B",
+    "Cb": "B",
+  };
+  return aliases[value] || null;
+}
+
+function noteAt(stringNumber, fret) {
+  const tuning = {
+    1: "E",
+    2: "B",
+    3: "G",
+    4: "D",
+    5: "A",
+    6: "E",
+  };
+  const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const openIndex = notes.indexOf(tuning[stringNumber]);
+  return notes[(openIndex + fret) % 12];
+}
+
+function makeHeader(text) {
+  const el = document.createElement("div");
+  el.className = "head";
+  el.textContent = text;
+  return el;
+}
+
+function buildColumnEntries(chart) {
+  const sectionsByIndex = new Map();
+  (chart.colSections || []).forEach((section) => {
+    const index = section.before ? chart.columns.indexOf(section.before) : 0;
+    if (index < 0) return;
+    const sections = sectionsByIndex.get(index) || [];
+    sections.push(section.label);
+    sectionsByIndex.set(index, sections);
+  });
+
+  const entries = [{ type: "rowhead", width: "66px" }];
+  chart.columns.forEach((column, index) => {
+    const sections = sectionsByIndex.get(index);
+    if (sections && sections.length) {
+      entries.push({ type: "colsection", label: sections.join("\n"), width: "28px" });
+    }
+    entries.push({ type: "column", label: column, column, width: "126px" });
+  });
+  return entries;
+}
+
+function appendColumnHeaders(grid, columnEntries, rowSpan) {
+  columnEntries.forEach((entry) => {
+    if (entry.type === "rowhead") {
+      grid.append(makeHeader(""));
+      return;
+    }
+    if (entry.type === "colsection") {
+      grid.append(makeColumnSectionHeader(entry.label, rowSpan));
+      return;
+    }
+    grid.append(makeHeader(entry.label));
+  });
+}
+
+function appendDataRow(grid, columnEntries, row) {
+  grid.append(makeRowHeader(row.label));
+  columnEntries.filter((entry) => entry.type === "column").forEach((entry) => {
+    grid.append(makeCell(row.cells.get(entry.column) || null));
+  });
+}
+
+function makeColumnSectionHeader(text, rowSpan) {
+  const el = document.createElement("div");
+  el.className = "col-section-head";
+  el.style.gridRow = `span ${rowSpan}`;
+  el.textContent = text;
+  return el;
+}
+
+function makeRowHeader(text) {
+  const el = document.createElement("div");
+  el.className = "row-head";
+  el.textContent = text;
+  return el;
+}
+
+function makeSectionRow(text) {
+  const el = document.createElement("div");
+  el.className = "section-row";
+  el.textContent = text;
+  return el;
+}
+
+function makeCell(cell) {
+  const el = document.createElement("div");
+  el.className = "cell";
+  if (!cell) {
+    el.classList.add("empty");
+    return el;
+  }
+  if (cell.diagrams.length > 1) {
+    el.classList.add("multi");
+  }
+  cell.diagrams.forEach((diagram) => {
+    el.append(makeChordSvg(diagram));
+  });
+  if (cell.note) {
+    const note = document.createElement("div");
+    note.className = "cell-note";
+    note.textContent = cell.note;
+    el.append(note);
+  }
+  return el;
+}
+
+function makeChordSvg(cell) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "chord");
+  svg.setAttribute("viewBox", "0 0 104 78");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `root fret ${cell.rootLabel}`);
+
+  const left = 24;
+  const top = 10;
+  const fretGap = 13;
+  const stringGap = 8;
+  const stringCount = 6;
+  const fretCount = 5;
+  const right = left + fretGap * fretCount;
+  const bottom = top + stringGap * (stringCount - 1);
+
+  for (let i = 0; i < stringCount; i++) {
+    const y = top + stringGap * i;
+    svg.append(line(left, y, right, y, "string-line"));
+  }
+
+  for (let i = 0; i <= fretCount; i++) {
+    const x = left + fretGap * i;
+    svg.append(line(x, top, x, bottom, i === 0 && cell.positionBase === 1 ? "nut-line" : "fret-line"));
+  }
+
+  cell.barres.forEach((barre) => {
+    const pos = barre.fret - cell.positionBase + 1;
+    if (pos < 1 || pos > fretCount) return;
+    const x = left + fretGap * (pos - 0.5);
+    const y1 = top + stringGap * (barre.from - 1);
+    const y2 = top + stringGap * (barre.to - 1);
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("class", "barre");
+    rect.setAttribute("x", x - 3.3);
+    rect.setAttribute("y", Math.min(y1, y2) - 4.5);
+    rect.setAttribute("width", 6.6);
+    rect.setAttribute("height", Math.abs(y2 - y1) + 9);
+    rect.setAttribute("rx", 3);
+    svg.append(rect);
+  });
+
+  cell.frets.forEach((fret, stringIndex) => {
+    const y = top + stringGap * stringIndex;
+    if (fret === null) {
+      return;
+    }
+    if (fret === "x") {
+      svg.append(cross(left - 11, y, 3.2));
+      return;
+    }
+    if (fret === 0) {
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      c.setAttribute("class", "open-mark");
+      c.setAttribute("cx", left - 10.5);
+      c.setAttribute("cy", y);
+      c.setAttribute("r", 3);
+      svg.append(c);
+      return;
+    }
+    const pos = fret - cell.positionBase + 1;
+    if (pos < 1 || pos > fretCount) {
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("class", "tiny-label");
+      label.setAttribute("x", left + 3);
+      label.setAttribute("y", y + 3);
+      label.textContent = fret;
+      svg.append(label);
+      return;
+    }
+    const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    dot.setAttribute("class", "dot");
+    dot.setAttribute("cx", left + fretGap * (pos - 0.5));
+    dot.setAttribute("cy", y);
+    dot.setAttribute("r", 3.6);
+    svg.append(dot);
+  });
+
+  if (cell.rootLabel > 1) {
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("class", "fret-label");
+    label.setAttribute("x", rootLabelX(cell, left, fretGap, fretCount));
+    label.setAttribute("y", bottom + 17);
+    label.setAttribute("text-anchor", "middle");
+    label.textContent = cell.rootLabel;
+    svg.append(label);
+  }
+
+  return svg;
+}
+
+function rootLabelX(cell, left, fretGap, fretCount) {
+  const pos = cell.rootLabel - cell.positionBase + 1;
+  if (pos >= 1 && pos <= fretCount) {
+    return left + fretGap * (pos - 0.5);
+  }
+  return left;
+}
+
+function line(x1, y1, x2, y2, className) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  el.setAttribute("class", className);
+  el.setAttribute("x1", x1);
+  el.setAttribute("y1", y1);
+  el.setAttribute("x2", x2);
+  el.setAttribute("y2", y2);
+  return el;
+}
+
+function cross(cx, cy, size) {
+  const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  const a = line(cx - size, cy - size, cx + size, cy + size, "muted-mark");
+  const b = line(cx + size, cy - size, cx - size, cy + size, "muted-mark");
+  group.append(a, b);
+  return group;
+}
+
+function update() {
+  try {
+    const chart = parseChart(sourceEl.value);
+    if (renderMode === "root") {
+      renderChartByRootStrings(chart);
+    } else {
+      renderChartByNotes(chart);
+    }
+    const dataRows = chart.rows.filter((row) => row.type !== "section");
+    const cells = dataRows.reduce((sum, row) => sum + chart.columns.filter((column) => row.cells.has(column)).length, 0);
+    statusEl.className = "status";
+    statusEl.textContent = `${dataRows.length} rows / ${chart.columns.length} columns / ${cells} chords / ${renderMode} view`;
+    localStorage.setItem(storageKey, sourceEl.value);
+  } catch (error) {
+    sheetEl.innerHTML = "";
+    statusEl.className = "status error";
+    statusEl.textContent = error.message;
+  }
+}
+
+function downloadSvg() {
+  const clone = sheetEl.cloneNode(true);
+  const width = Math.max(sheetEl.scrollWidth, 1);
+  const height = Math.max(sheetEl.scrollHeight, 1);
+  const styles = Array.from(document.styleSheets)
+    .map((sheet) => {
+      try {
+        return Array.from(sheet.cssRules).map((rule) => rule.cssText).join("\n");
+      } catch {
+        return "";
+      }
+    })
+    .join("\n");
+  const html = new XMLSerializer().serializeToString(clone);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml"><style>${styles}</style>${html}</div></foreignObject></svg>`;
+  const blob = new Blob([svg], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "chord-chart.svg";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+sourceEl.addEventListener("input", update);
+sampleButton.addEventListener("click", () => {
+  sourceEl.value = sampleSource;
+  update();
+});
+flipButton.addEventListener("click", () => {
+  try {
+    const chart = parseChart(sourceEl.value);
+    sourceEl.value = serializeTransposedChart(chart);
+    update();
+  } catch (error) {
+    statusEl.className = "status error";
+    statusEl.textContent = error.message;
+  }
+});
+saveButton.addEventListener("click", downloadDsl);
+svgButton.addEventListener("click", downloadSvg);
+printButton.addEventListener("click", () => window.print());
+
+update();
+
+function downloadDsl() {
+  const chart = parseChart(sourceEl.value);
+  const safeTitle = (chart.title || "chord-chart")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "chord-chart";
+  const blob = new Blob([sourceEl.value], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${safeTitle}.dsl`;
+  a.click();
+  URL.revokeObjectURL(url);
+  statusEl.className = "status";
+  statusEl.textContent = `Saved ${safeTitle}.dsl`;
+}
+
+function serializeTransposedChart(chart) {
+  const lines = [];
+  lines.push(`title: ${chart.title || "Chord Chart"}`);
+  const dataRows = chart.rows.filter((row) => row.type !== "section");
+  lines.push(`columns: ${dataRows.map((row) => row.label).join(" ")}`);
+  const flippedColumnSections = collectFlippedColumnSections(chart);
+  flippedColumnSections.forEach((section) => {
+    lines.push(`colsection: ${section.label} | before=${section.before}`);
+  });
+  lines.push("");
+
+  const flippedRowSections = collectFlippedRowSections(chart);
+  chart.columns.forEach((column) => {
+    const rowSections = flippedRowSections.get(column) || [];
+    rowSections.forEach((section) => {
+      lines.push(`section: ${section.label}`);
+    });
+    lines.push(`row: ${column}`);
+    dataRows.forEach((row) => {
+      const cell = row.cells.get(column);
+      lines.push(`${row.label}: ${serializeCell(cell)}`);
+    });
+    lines.push("");
+  });
+
+  return lines.join("\n").trimEnd() + "\n";
+}
+
+function collectFlippedColumnSections(chart) {
+  const sections = [];
+  let pendingSection = null;
+  chart.rows.forEach((row) => {
+    if (row.type === "section") {
+      pendingSection = row.label;
+      return;
+    }
+    if (pendingSection) {
+      sections.push({ label: pendingSection, before: row.label });
+      pendingSection = null;
+    }
+  });
+  return sections;
+}
+
+function collectFlippedRowSections(chart) {
+  const sections = new Map();
+  if (!chart.colSections || !chart.colSections.length || !chart.columns.length) return sections;
+
+  chart.colSections.forEach((section) => {
+    const before = section.before || chart.columns[0];
+    if (!chart.columns.includes(before)) return;
+    const current = sections.get(before) || [];
+    current.push({ label: section.label });
+    sections.set(before, current);
+  });
+
+  return sections;
+}
+
+function serializeCell(cell) {
+  if (!cell || !cell.diagrams.length) return "-";
+  return cell.diagrams.map((diagram, index) => {
+    const parts = [];
+    parts.push(`frets=${diagram.frets.map(formatFret).join(" ")}`);
+    diagram.barres.forEach((barre) => {
+      parts.push(`barre=${barre.fret}:${barre.from}-${barre.to}`);
+    });
+    if (index === 0 && cell.note) {
+      parts.push(`note=${cell.note}`);
+    }
+    return parts.join(" ");
+  }).join(" | ");
+}
+
+function formatFret(fret) {
+  if (fret === null) return ".";
+  if (fret === "x") return "x";
+  if (fret === 0) return "o";
+  return String(fret);
+}
+</script>
+</body>
+</html>
