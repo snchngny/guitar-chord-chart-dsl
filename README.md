@@ -17,4 +17,22 @@
 
 ## 配布物
 
-実行に必要なのは `index.html` だけです。`share/guitar-tab-compare/` にある画像、PDF、古いHTML、切り出し画像は制作途中の素材です。
+実行に必要なのは `index.html` だけです。
+
+## Web公開
+
+Cloudflare PagesのGit連携で、GitHubの `main` へのpushを自動公開します。
+
+| 設定 | 値 |
+| --- | --- |
+| Framework preset | None |
+| Production branch | `main` |
+| Root directory | リポジトリ直下（空欄） |
+| Build command | `mkdir -p dist && cp index.html dist/index.html` |
+| Build output directory | `dist` |
+
+公開対象は `dist/index.html` のみです。READMEやローカルの保存データはサイトへ配信しません。GitHubのコード更新後、Cloudflareのデプロイ成功を確認してください。
+
+編集内容・デフォルト設定は利用中のブラウザだけに保存され、サーバーへの送信や端末間同期はありません。ローカルHTMLからWeb版へ移る場合も自動では引き継がれないため、必要なDSLは先に `Save` で保存してください。
+
+設定手順は [Cloudflare PagesのGit連携](https://developers.cloudflare.com/pages/configuration/git-integration/) を参照してください。
