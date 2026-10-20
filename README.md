@@ -2,6 +2,8 @@
 
 ギターコード表をDSLから描画する単体HTMLツールです。
 
+[Web版を開く](https://guitar-chord-chart-dsl.pages.dev/)
+
 ## 使い方
 
 `index.html` をブラウザで開くだけで使えます。外部ライブラリや別ファイルは不要です。
